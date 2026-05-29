@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ANG HR Basic</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <h1>ANG HR Basic</h1>
+      <p>員工基本版｜登入、打卡、請假、希望休</p>
+    </section>
+
+    <section class="card" id="loginCard">
+      <h2>員工登入</h2>
+      <div class="row">
+        <input class="input" id="empId" placeholder="員編，例如 ANG0603" autocomplete="username">
+        <input class="input" id="password" placeholder="密碼" type="password" autocomplete="current-password">
+      </div>
+      <p><button class="btn" id="loginBtn">登入</button></p>
+      <div id="msg" class="message hidden"></div>
+    </section>
+
+    <section class="card hidden" id="homeCard">
+      <h2 id="welcomeTitle">員工首頁</h2>
+      <p class="muted" id="profileText"></p>
+      <div class="grid">
+        <button class="btn" data-action="employeeClock" data-clock="clock_in">上班打卡</button>
+        <button class="btn secondary" data-action="employeeClock" data-clock="clock_out">下班打卡</button>
+        <a class="btn ghost" href="employee.html">員工功能頁</a>
+      </div>
+      <div class="grid" id="stats" style="margin-top:16px"></div>
+    </section>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="api.js"></script>
+  <script>
+    const state = {
+      id: localStorage.getItem('ang_hr_id') || '',
+      token: localStorage.getItem('ang_hr_token') || '',
+      profile: null
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    function showMsg(text, ok) {
+      const el = $('msg');
+      el.textContent = text || '';
+      el.className = ok ? 'message ok' : 'message';
+      el.classList.toggle('hidden', !text);
+    }
+
+    async function login() {
+      const id = $('empId').value.trim().toUpperCase();
+      const password = $('password').value.trim();
+      showMsg('登入中...', true);
+      const res = await ANG_HR_API.post('login', { id, password });
+      if (!res.ok) return showMsg(res.message || '登入失敗', false);
+      state.id = res.id;
+      state.token = res.token;
+      state.profile = res;
+      localStorage.setItem('ang_hr_id', state.id);
+      localStorage.setItem('ang_hr_token', state.token);
+      showHome(res);
+    }
+
+    async function loadBootstrap() {
+      if (!state.id || !state.token) return;
+      const res = await ANG_HR_API.post('employeeBootstrap', { id: state.id, token: state.token });
+      if (res.ok) showHome(res.profile || res);
+    }
+
+    function showHome(profile) {
+      $('loginCard').classList.add('hidden');
+      $('homeCard').classList.remove('hidden');
+      $('welcomeTitle').textContent = '你好，' + (profile.nickname || profile.name || profile.id || state.id);
+      $('profileText').textContent = [profile.id || state.id, profile.role || '', profile.dept || ''].filter(Boolean).join('｜');
+      $('stats').innerHTML = `
+        <div class="tile"><b>版本</b><span class="muted">${ANG_HR_CONFIG.editionName}</span></div>
+        <div class="tile"><b>狀態</b><span class="muted">已登入</span></div>
+      `;
+    }
+
+    document.getElementById('loginBtn').addEventListener('click', login);
+    document.querySelectorAll('[data-action="employeeClock"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const res = await ANG_HR_API.post('employeeClock', { id: state.id, token: state.token, action: btn.dataset.clock, source: 'github_basic' });
+        alert(res.message || (res.ok ? '完成' : '失敗'));
+      });
+    });
+
+    $('empId').value = state.id || '';
+    loadBootstrap();
+  </script>
+</body>
+</html>
