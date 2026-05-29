@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ANG HR Basic Employee</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <h1>員工功能</h1>
+      <p>Basic｜打卡、請假、補打卡、希望休</p>
+    </section>
+    <section class="card">
+      <div class="grid">
+        <button class="btn" data-run="employeeClock">打卡</button>
+        <button class="btn ghost" data-run="employeeLeave">請假申請</button>
+        <button class="btn ghost" data-run="employeeClockFix">補打卡</button>
+        <button class="btn ghost" data-run="submitPreselect">希望休</button>
+      </div>
+      <div id="msg" class="message hidden"></div>
+    </section>
+  </main>
+  <script src="config.js"></script>
+  <script src="api.js"></script>
+  <script>
+    const empId = localStorage.getItem('ang_hr_id') || '';
+    const empToken = localStorage.getItem('ang_hr_token') || '';
+    const msg = document.getElementById('msg');
+    function show(text, ok) { msg.textContent = text; msg.className = ok ? 'message ok' : 'message'; }
+    document.querySelectorAll('[data-run]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const action = btn.dataset.run;
+        const res = await ANG_HR_API.post(action, { id: empId, token: empToken, source: 'github_basic' });
+        show(res.message || JSON.stringify(res), !!res.ok);
+      });
+    });
+  </script>
+</body>
+</html>
