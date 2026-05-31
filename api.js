@@ -1,24 +1,10 @@
-const ANG_HR_API = (() => {
-  const cfg = window.ANG_HR_CONFIG || {};
+window.ANG_HR_CONFIG = {
+  edition: 'basic',
+  editionName: 'ANG HR Basic',
 
-  async function post(action, payload = {}) {
-    if (!cfg.apiBaseUrl) {
-      return { ok: false, message: '尚未設定 GAS API URL，請修改 config.js 的 apiBaseUrl。' };
-    }
+  apiBaseUrl: 'https://script.google.com/macros/s/AKfycbylg5KENMMvwj6aqeK51ASk-uT6CsJLob6dix2ELmoP5rf8Yla5RnRKTiaVtkrA9dPm/exec',
+  gasUrl: 'https://script.google.com/macros/s/AKfycbylg5KENMMvwj6aqeK51ASk-uT6CsJLob6dix2ELmoP5rf8Yla5RnRKTiaVtkrA9dPm/exec',
 
-    const res = await fetch(cfg.apiBaseUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action, ...payload })
-    });
-
-    const text = await res.text();
-    try {
-      return JSON.parse(text);
-    } catch (err) {
-      return { ok: false, message: 'API 回傳不是 JSON', raw: text };
-    }
-  }
-
-  return { post };
-})();
+  defaultPage: 'employee',
+  version: 'leave_calc_v2'
+};
