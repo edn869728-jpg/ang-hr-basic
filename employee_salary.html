@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-  <title>ANG HR Basic｜薪資查詢</title>
+  <title>ANG HR Basic｜員工首頁</title>
   <link rel="manifest" href="manifest.webmanifest">
   <style>
 :root{
@@ -82,8 +82,57 @@ button{cursor:pointer;}
       </div>
       <div class="pill">入門版</div>
     </header>
-    <section class="hero"><h2>💰 薪資查詢</h2><div class="sub">目前登入：<strong id="welcomeName">員工</strong>｜員工 ID：<strong id="employeeIdText">-</strong></div></section>
-    <section class="grid"><div class="card span-12"><div class="card-title">💰 薪資明細</div><table class="table"><thead><tr><th>月份</th><th>預估工時</th><th>狀態</th></tr></thead><tbody id="salaryRows"><tr><td>本月</td><td>-</td><td>等待後端資料</td></tr></tbody></table></div></section>
+    <section class="hero">
+      <h2>員工首頁</h2>
+      <div class="sub">歡迎回來，<strong id="welcomeName">員工</strong>。這版已修正登入後跳轉、URL 員工 ID 保留、離開再回來抓不到 ID、以及 Basic 誤導到 clean-v7 的問題。</div>
+    </section>
+
+    <section class="grid">
+      <div class="card span-4">
+        <div class="card-title">📍 今日狀態</div>
+        <div class="big" id="todayStatusText">尚未載入</div>
+        <div class="muted" id="todayStatusSub">正在讀取今日打卡資訊</div>
+        <div class="row">
+          <button class="btn primary" data-go="clock">前往打卡</button>
+          <button class="btn light" id="reloadBtn">重新整理</button>
+        </div>
+      </div>
+
+      <div class="card span-4">
+        <div class="card-title">👤 個人資訊</div>
+        <div class="muted">員工編號</div>
+        <div class="big" id="employeeIdText">-</div>
+        <div class="muted" style="margin-top:8px;">權限：<span id="roleText">-</span></div>
+        <div class="row">
+          <button class="btn gray" data-go="salary">查看薪資</button>
+          <button class="btn danger" id="logoutBtn">登出</button>
+        </div>
+      </div>
+
+      <div class="card span-4">
+        <div class="card-title">⚡ 快捷功能</div>
+        <div class="quick-grid">
+          <button class="quick" data-go="clock"><span class="ico">🕒</span><strong>打卡中心</strong><span>上下班 / 加班</span></button>
+          <button class="quick" data-go="schedule"><span class="ico">📅</span><strong>班表</strong><span>正式排班</span></button>
+          <button class="quick" data-go="upload"><span class="ico">📤</span><strong>資料上傳</strong><span>證明 / 請款</span></button>
+          <button class="quick" data-go="admin"><span class="ico">🛠️</span><strong>管理入口</strong><span>依權限顯示</span></button>
+        </div>
+      </div>
+
+      <div class="card span-7">
+        <div class="card-title">🕒 本月打卡紀錄</div>
+        <div id="monthClockBox" class="list"><div class="empty">尚無本月打卡紀錄</div></div>
+      </div>
+
+      <div class="card span-5">
+        <div class="card-title">📌 系統提醒</div>
+        <div class="list">
+          <div class="list-item">Basic 正確員工首頁：<strong>employee_home.htm</strong></div>
+          <div class="list-item">所有跳頁都會帶入 <strong>id</strong>，避免上下班或管理頁缺少員工 ID。</div>
+          <div class="list-item">離開頁面再回來時，會優先讀 URL，其次讀 localStorage。</div>
+        </div>
+      </div>
+    </section>
   </main>
   <div id="toast" class="toast"></div>
   <script src="config.js"></script>
@@ -91,12 +140,45 @@ button{cursor:pointer;}
   <script src="assets/app.js"></script>
   <script src="assets/js_idle.js"></script>
   <script>
+    function setTodayStatus(text, sub){ ANGApp.safeText('todayStatusText', text || '尚無狀態'); ANGApp.safeText('todayStatusSub', sub || ''); }
+    function renderMonthClock(list){
+      var box = document.getElementById('monthClockBox');
+      if (!box) return;
+      if (!Array.isArray(list) || !list.length) { box.innerHTML = '<div class="empty">尚無本月打卡紀錄</div>'; return; }
+      box.innerHTML = list.map(function(item){
+        var d = item.date || item['日期'] || '-';
+        var inTime = item.in || item.clockIn || item['上班'] || '-';
+        var outTime = item.out || item.clockOut || item['下班'] || '-';
+        var hours = item.hours || item['工時'] || '-';
+        return '<div class="list-item"><strong>' + ANGApp.escapeHtml(d) + '</strong><br>上班：' + ANGApp.escapeHtml(inTime) + '<br>下班：' + ANGApp.escapeHtml(outTime) + '<br>工時：' + ANGApp.escapeHtml(hours) + '</div>';
+      }).join('');
+    }
+    function loadDashboard(){
+      var auth = ANGAuth.requireLogin();
+      if (!auth) return;
+      ANGApp.renderShellUser(auth);
+      setTodayStatus('待打卡確認', '員工 ID：' + auth.id);
+      renderMonthClock([]);
+      if (!ANGAuth.hasGoogle()) return;
+      try {
+        google.script.run.withSuccessHandler(function(res){
+          if (!res || !res.ok) { setTodayStatus('讀取失敗', (res && (res.msg || res.message)) || '無法取得今日狀態'); return; }
+          setTodayStatus(res.text || res.statusText || res.status || '今日狀態已載入', res.subText || res.message || '已完成今日資料讀取');
+        }).withFailureHandler(function(err){ setTodayStatus('讀取失敗', err && err.message ? err.message : String(err || 'error')); }).get_today_status(auth.id);
+      } catch(e) {}
+      try {
+        google.script.run.withSuccessHandler(function(res){ renderMonthClock((res && (res.list || res.data || res.records)) || []); }).withFailureHandler(function(){ renderMonthClock([]); }).get_month_clock(auth.id);
+      } catch(e) {}
+    }
     window.addEventListener('load', function(){
       var auth = ANGAuth.requireLogin();
       if (!auth) return;
       ANGApp.renderShellUser(auth);
-      ANGApp.bottomNav('salary');
-      ANGApp.bindNav('salary');
+      ANGApp.bottomNav('employee');
+      ANGApp.bindNav('employee');
+      document.getElementById('logoutBtn').addEventListener('click', ANGAuth.logout);
+      document.getElementById('reloadBtn').addEventListener('click', function(){ ANGAuth.toast('重新整理中'); loadDashboard(); });
+      loadDashboard();
     });
   </script>
 </body>
