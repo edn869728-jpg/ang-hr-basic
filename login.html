@@ -39,7 +39,7 @@ input{width:100%;border:0;outline:0;border-radius:16px;background:#f3f4f6;paddin
     </div>
     <div class="shift">
       <div><small>登入後</small><div class="big">一律先進員工頁</div></div>
-      <div><small>版本</small><div class="big">v15</div></div>
+      <div><small>版本</small><div class="big">v16</div></div>
     </div>
   </section>
 
@@ -56,7 +56,7 @@ input{width:100%;border:0;outline:0;border-radius:16px;background:#f3f4f6;paddin
       <button class="btn gray" type="button" id="forgotBtn">忘記密碼 / 重設密碼</button>
     </div>
 
-    <div class="notice">v15：登入成功後一律先進員工頁；同時保存 ang_employee_id / emp_logged_in / token / role，供打卡上下班與管理頁使用。</div>
+    <div class="notice">v16：登入成功後一律先進 employee_home.html；只固定 ANG0603 為 Creator，其他角色依人員資料表 / GAS 回傳為準。</div>
     <div id="debugBox" class="debug-box"></div>
   </section>
 </main>
@@ -68,7 +68,7 @@ input{width:100%;border:0;outline:0;border-radius:16px;background:#f3f4f6;paddin
   'use strict';
 
   var GAS_URL = 'https://script.google.com/macros/s/AKfycbylg5KENMMvwj6aqeK51ASk-uT6CsJLob6dix2ELmoP5rf8Yla5RnRKTiaVtkrA9dPm/exec';
-  var LOGIN_TARGET = 'employee.html?v=15';
+  var LOGIN_TARGET = 'employee_home.html?v=16';
 
   function toast(message){
     var el=document.getElementById('toast');
@@ -84,14 +84,14 @@ input{width:100%;border:0;outline:0;border-radius:16px;background:#f3f4f6;paddin
     return v.replace(/[^A-Za-z0-9_-]/g,'').toUpperCase();
   }
 
+  function cleanRole(v){
+    return String(v || '').trim().toLowerCase();
+  }
+
   function guessRole(id, role){
     id = cleanId(id);
-    role = String(role || '').trim().toLowerCase();
-    if(!role || role === 'employee' || role === 'staff'){
-      if(id === 'ANG0603') return 'creator';
-      if(id === 'ANG0606') return 'manager';
-      if(id === 'ANG0601') return 'admin';
-    }
+    role = cleanRole(role || '');
+    if(id === 'ANG0603') return 'creator';
     return role || 'employee';
   }
 
@@ -141,12 +141,12 @@ input{width:100%;border:0;outline:0;border-radius:16px;background:#f3f4f6;paddin
   function saveLogin(res,id){
     res=res||{};
     var user=res.user||{};
-    var finalId=cleanId(res.id||res.employeeId||res.employee_id||res.account||user.id||user.employeeId||id);
+    var finalId=cleanId(res.id||res.employeeId||res.employee_id||res.account||user.id||user.employeeId||user.employee_id||id);
     if(!finalId) finalId=id;
 
-    var name=res.name||res.nickname||user.name||user.nickname||finalId;
-    var role=guessRole(finalId, res.role||user.role);
-    var token=res.token||res.loginToken||user.token||user.loginToken||('login-token-'+Date.now());
+    var name=res.name||res.nickname||res.displayName||user.name||user.nickname||user.displayName||finalId;
+    var role=guessRole(finalId, res.role||res.permission||user.role||user.permission);
+    var token=res.token||res.loginToken||res.sessionToken||user.token||user.loginToken||user.sessionToken||('login-token-'+Date.now());
 
     localStorage.setItem('ang_employee_id',finalId);
     localStorage.setItem('ang_employee_name',name);
@@ -194,7 +194,6 @@ input{width:100%;border:0;outline:0;border-radius:16px;background:#f3f4f6;paddin
 
     saveLogin(res,id);
     toast('登入成功，前往員工頁');
-
     setTimeout(function(){ location.replace(LOGIN_TARGET); },250);
   }
 
@@ -212,7 +211,7 @@ input{width:100%;border:0;outline:0;border-radius:16px;background:#f3f4f6;paddin
   }
 
   document.getElementById('loginBtn').addEventListener('click',doLogin);
-  document.getElementById('activateBtn').addEventListener('click',function(){ location.href='activate.html?v=15'; });
+  document.getElementById('activateBtn').addEventListener('click',function(){ location.href='activate.html?v=16'; });
   document.getElementById('forgotBtn').addEventListener('click',forgotPassword);
   document.getElementById('loginPassword').addEventListener('keydown',function(e){ if(e.key==='Enter') doLogin(); });
   document.getElementById('loginId').addEventListener('keydown',function(e){ if(e.key==='Enter') document.getElementById('loginPassword').focus(); });
