@@ -3,7 +3,7 @@
 
   var VERSION = 'v15';
   var CONFIG = window.ANG_HR_CONFIG || {};
-  var EMPLOYEE_HOME = CONFIG.employeeHomeFile || 'employee.html';
+  var EMPLOYEE_HOME = CONFIG.employeeHomeFile || 'employee_home.html';
   var ADMIN_HOME = CONFIG.adminHomeFile || 'admin_home.html';
   var GAS_URL = CONFIG.apiBaseUrl || CONFIG.gasUrl || 'https://script.google.com/macros/s/AKfycbylg5KENMMvwj6aqeK51ASk-uT6CsJLob6dix2ELmoP5rf8Yla5RnRKTiaVtkrA9dPm/exec';
 
@@ -343,40 +343,29 @@
     }, true);
   }
 
-  function exposeGlobals(){
-    window.goPage = goPage;
-    window.goClock = function(){ goPage('clock'); };
-    window.goSalary = function(){ goPage('salary'); };
-    window.goUpload = function(){ goPage('upload'); };
-    window.goSchedule = function(){ goPage('schedule'); };
-    window.goIndex = goEmployee;
-    window.goEmployee = goEmployee;
-    window.goAdmin = goAdmin;
-    window.logout = logout;
+  function bootstrap(){
+    patchApi();
+    patchFetch();
+    bindClickDelegation();
+    window.ANG_HR_AUTH = {
+      version: VERSION,
+      gasUrl: GAS_URL,
+      employeeHome: EMPLOYEE_HOME,
+      adminHome: ADMIN_HOME,
+      keys: KEYS,
+      getId: getId,
+      getToken: getToken,
+      getUser: getUser,
+      saveLogin: saveLogin,
+      withAuthPayload: withAuthPayload,
+      isAdminRole: isAdminRole,
+      requireLogin: requireLogin,
+      goEmployee: goEmployee,
+      goAdmin: goAdmin,
+      goPage: goPage,
+      logout: logout
+    };
   }
 
-  patchFetch();
-  patchApi();
-  exposeGlobals();
-
-  window.ANG_HR_AUTH = {
-    saveLogin: saveLogin,
-    getUser: getUser,
-    isLoggedIn: function(){ return !!getUser(); },
-    logout: logout,
-    requireLogin: requireLogin,
-    cleanId: cleanId,
-    cleanRole: cleanRole,
-    guessRole: guessRole,
-    withAuthPayload: withAuthPayload,
-    goEmployee: goEmployee,
-    goAdmin: goAdmin
-  };
-
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindClickDelegation);
-  else bindClickDelegation();
-
-  setTimeout(patchApi, 0);
-  setTimeout(patchApi, 300);
-  setTimeout(patchApi, 1000);
+  bootstrap();
 })();
