@@ -133,7 +133,7 @@
   function resolveCompany(companyId){
     companyId = clean(companyId || cfg.defaultCompanyId || getQuery().company_id || getQuery().companyId);
     if (!companyId) return Promise.resolve({ ok:false, message:'請輸入公司代碼 company_id' });
-    if (!ROUTER_URL || ROUTER_URL.indexOf('PASTE_YOUR_ROUTER_GAS_WEB_APP_ID') >= 0) {
+    if (!ROUTER_URL || ROUTER_URL.indexOf('AKfycbzTGuQHY-TDXMqYfvO_679_q9v6mEarKP4wsPaUspJhqv3tWT0Aj4M8FptjuEMOOoUJ5w') >= 0) {
       return Promise.resolve({ ok:false, message:'尚未設定 Router GAS Web App URL' });
     }
     return postJson(ROUTER_URL, { action:'resolveCompany', company_id: companyId, source:'web_login' })
@@ -219,7 +219,7 @@
     }
   }
 
-  window.ANG_HR_ROUTER_AUTH = {
+  window。ANG_HR_ROUTER_AUTH = {
     resolveCompany: resolveCompany,
     loginWithRouter: loginWithRouter,
     saveRoute: saveRoute,
@@ -236,7 +236,7 @@
   document.addEventListener('DOMContentLoaded', function(){
     var q = getQuery();
     var companyId = clean(q.company_id || q.companyId || cfg.defaultCompanyId);
-    if (companyId && ROUTER_URL && ROUTER_URL.indexOf('PASTE_YOUR_ROUTER_GAS_WEB_APP_ID') < 0) {
+    if (companyId && ROUTER_URL && ROUTER_URL.indexOf('AKfycbzTGuQHY-TDXMqYfvO_679_q9v6mEarKP4wsPaUspJhqv3tWT0Aj4M8FptjuEMOOoUJ5w') < 0) {
       resolveCompany(companyId).then(function(){});
     }
     if (localStorage.getItem('isLoggedIn') === 'true') {
