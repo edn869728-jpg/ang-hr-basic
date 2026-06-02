@@ -1,123 +1,139 @@
-
-(function(window){
+(function(window, document){
   'use strict';
-  const cfg = window.ANG_HR_CONFIG || {};
-  const routes = cfg.routes || {};
-  const storagePrefix = 'ang_hr_' + (cfg.version || 'app') + '_';
 
-  function qs(){ return new URLSearchParams(window.location.search || ''); }
-  function clean(v){ return String(v == null ? '' : v).trim(); }
-  function normalizeId(input){
-    let raw = clean(input).toUpperCase().replace(/\s+/g,'');
-    if (!raw) return '';
-    const m1 = raw.match(/^ANG\d{1,8}$/);
-    if (m1) return 'ANG' + raw.replace(/^ANG/,'').padStart(4,'0');
-    const m2 = raw.match(/(\d{1,8})/);
-    if (m2) return 'ANG' + m2[1].padStart(4,'0');
-    return raw;
+  function ready(fn){ if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn); else fn(); }
+  function str(v){ return v == null ? '' : String(v); }
+  function esc(v){ return str(v).replace(/[&<>'"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'})[c]; }); }
+  function pageName(){
+    var p = (document.body && document.body.dataset && document.body.dataset.page) || '';
+    if (p) return p;
+    var file = (location.pathname.split('/').pop() || 'index.html').replace(/\.html?$/i,'');
+    return file || 'index';
   }
-  function storageKeys(){
-    return {
-      id: storagePrefix + 'id',
-      token: storagePrefix + 'token',
-      name: storagePrefix + 'name',
-      role: storagePrefix + 'role',
-      logged: storagePrefix + 'logged'
-    };
+  function mainEl(){ return document.getElementById('main') || document.querySelector('main.app-shell'); }
+  function toast(msg){ if(window.ANGAuth && ANGAuth.toast) ANGAuth.toast(msg); else alert(msg); }
+  function isAdmin(role){ return ['admin','manager','creator'].indexOf(String(role || '').toLowerCase()) >= 0; }
+  function featureAllowed(feature){
+    var m = window.ANG_HR_FEATURES || {};
+    if (m[feature] === false || m[feature] === 0) return false;
+    return true;
   }
-  function save(auth){
-    const k = storageKeys();
-    const id = normalizeId(auth && auth.id);
-    if (!id) return null;
-    const name = clean(auth.name || auth.displayName || localStorage.getItem(k.name) || id);
-    const token = clean(auth.token || localStorage.getItem(k.token) || '');
-    const role = clean(auth.role || localStorage.getItem(k.role) || guessRole(id));
-    localStorage.setItem(k.id, id);
-    localStorage.setItem(k.name, name);
-    localStorage.setItem(k.token, token);
-    localStorage.setItem(k.role, role);
-    localStorage.setItem(k.logged, 'true');
-    // 舊版相容鍵，避免跳頁後抓不到員工 ID
-    localStorage.setItem('emp_logged_in', id);
-    localStorage.setItem('loginId', id);
-    localStorage.setItem('isLoggedIn', 'true');
-    localStorage.setItem('emp_name', name);
-    if (token) localStorage.setItem('loginToken', token);
-    return {id, name, token, role};
-  }
-  function get(){
-    const p = qs();
-    const k = storageKeys();
-    const urlId = normalizeId(p.get('id') || p.get('ID') || p.get('emp') || '');
-    const urlName = clean(p.get('name') || p.get('NAME') || '');
-    const urlToken = clean(p.get('token') || p.get('TOKEN') || '');
-    if (urlId) return save({id:urlId, name:urlName || localStorage.getItem(k.name) || localStorage.getItem('emp_name') || urlId, token:urlToken || localStorage.getItem(k.token) || localStorage.getItem('loginToken') || ''});
-    const id = normalizeId(localStorage.getItem(k.id) || localStorage.getItem('emp_logged_in') || localStorage.getItem('loginId') || '');
-    if (!id) return null;
-    return save({id, name: localStorage.getItem(k.name) || localStorage.getItem('emp_name') || id, token: localStorage.getItem(k.token) || localStorage.getItem('loginToken') || '', role: localStorage.getItem(k.role) || guessRole(id)});
-  }
-  function clear(){
-    const k = storageKeys();
-    Object.keys(k).forEach(function(x){ localStorage.removeItem(k[x]); });
-    ['emp_logged_in','loginId','isLoggedIn','emp_name','loginToken','authToken'].forEach(function(x){ localStorage.removeItem(x); });
-  }
-  function listHasId(list, id){
-    if (!Array.isArray(list)) return false;
-    return list.map(normalizeId).indexOf(id) >= 0;
-  }
-  function guessRole(id){
-    id = normalizeId(id);
-    const creatorId = normalizeId(cfg.creatorId || 'ANG0603');
-    if (id && id === creatorId) return 'creator';
-    if (listHasId(cfg.managerIds, id)) return 'manager';
-    if (listHasId(cfg.adminIds, id)) return 'admin';
-    return 'employee';
-  }
-  function pageFile(key){
-    if (key === 'employee') return cfg.employeeHome || routes.employee || 'employee_home.html';
-    return routes[key] || key || 'index.html';
-  }
-  function buildUrl(key, extra, options){
-    const file = pageFile(key);
-    const url = new URL(file, window.location.href);
-    const auth = options && options.noAuth ? null : get();
-    if (auth && auth.id) url.searchParams.set('id', auth.id);
-    if (auth && auth.token) url.searchParams.set('token', auth.token);
-    if (auth && auth.name && auth.name !== auth.id) url.searchParams.set('name', auth.name);
-    if (extra) Object.keys(extra).forEach(function(k){ if (extra[k] !== undefined && extra[k] !== null && extra[k] !== '') url.searchParams.set(k, extra[k]); });
-    return url.pathname.split('/').pop() + url.search + url.hash;
-  }
-  function go(key, extra, options){ window.location.href = buildUrl(key, extra, options); }
-  function requireLogin(){
-    const auth = get();
-    if (!auth || !auth.id){ go('login', null, {noAuth:true}); return null; }
-    const p = qs();
-    if (!p.get('id') && !p.get('ID')) {
-      const url = new URL(window.location.href);
-      url.searchParams.set('id', auth.id);
-      if (auth.token) url.searchParams.set('token', auth.token);
-      if (auth.name && auth.name !== auth.id) url.searchParams.set('name', auth.name);
-      window.history.replaceState(null, '', url.pathname.split('/').pop() + url.search + url.hash);
+  function route(file){ if(window.ANGAuth) ANGAuth.goPage(file); else location.href = file; }
+
+  function bindIndexLogin(){
+    var form = document.getElementById('loginForm');
+    if (!form || !window.ANGAuth) return;
+
+    var q = ANGAuth.getQuery();
+    var idInput = document.getElementById('loginId');
+    var codeInput = document.getElementById('activationCode');
+    var deviceInput = document.getElementById('deviceId');
+    var clearBtn = document.getElementById('clearBtn');
+
+    if (idInput && q.id) idInput.value = ANGAuth.normalizeId(q.id);
+    if (codeInput && (q.activation_code || q.activationCode || q.code || q.token)) codeInput.value = q.activation_code || q.activationCode || q.code || q.token;
+    if (deviceInput && (q.device_id || q.deviceId || q.device)) deviceInput.value = q.device_id || q.deviceId || q.device;
+
+    if ((q.autologin === '1' || q.source === 'app' || q.app === 'ang_hr') && q.id && (q.activation_code || q.activationCode || q.code || q.token)) {
+      setTimeout(function(){ form.dispatchEvent(new Event('submit', { bubbles:true, cancelable:true })); }, 120);
     }
-    window.currentId = auth.id;
-    window.currentName = auth.name;
-    window.currentRole = auth.role;
-    return auth;
+
+    form.addEventListener('submit', async function(e){
+      e.preventDefault();
+      var btn = document.getElementById('loginBtn');
+      if (btn) { btn.disabled = true; btn.textContent = '啟用中...'; }
+      var res = await ANGAuth.activate({
+        id: idInput ? idInput.value : '',
+        activation_code: codeInput ? codeInput.value : '',
+        device_id: deviceInput ? deviceInput.value : '',
+        plan: window.ANG_HR_DEFAULT_PLAN || document.body.dataset.plan || ''
+      });
+      if (btn) { btn.disabled = false; btn.textContent = '啟用並登入'; }
+      if (!res || !res.ok) { toast((res && res.message) || '啟用失敗'); return; }
+      toast('登入成功');
+      setTimeout(function(){ ANGAuth.goHome(); }, 220);
+    });
+
+    if (clearBtn) clearBtn.addEventListener('click', function(){
+      ANGAuth.clearSession();
+      if (idInput) idInput.value = '';
+      if (codeInput) codeInput.value = '';
+      if (deviceInput) deviceInput.value = '';
+      toast('已清除登入資料');
+    });
   }
-  function logout(){ clear(); go('login', null, {noAuth:true}); }
-  function hasGoogle(){ return typeof google !== 'undefined' && google && google.script && google.script.run; }
-  function toast(message){
-    let el = document.getElementById('toast');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'toast';
-      el.className = 'toast';
-      document.body.appendChild(el);
-    }
-    el.textContent = message || '';
-    el.style.display = 'block';
-    clearTimeout(window.__angToastTimer);
-    window.__angToastTimer = setTimeout(function(){ el.style.display = 'none'; }, 2600);
+
+  function layoutNav(kind){
+    var old = document.querySelector('.bottom-nav');
+    if (old) old.remove();
+    if (!window.ANGAuth || !ANGAuth.isLoggedIn()) return;
+    var nav = document.createElement('nav');
+    nav.className = 'bottom-nav';
+    nav.innerHTML = '<button class="nav-btn" data-go="employee_schedule.html"><span class="nav-ico">📅</span><span>排班</span></button>'+
+      '<button class="nav-btn" data-go="employee_clock.html"><span class="nav-ico">🕒</span><span>打卡</span></button>'+
+      '<button class="nav-btn home active" data-go="employee_home.htm"><span class="nav-ico">⌂</span><span>主頁</span></button>'+
+      '<button class="nav-btn" data-go="employee_salary.html"><span class="nav-ico">💰</span><span>薪資</span></button>'+
+      '<button class="nav-btn" data-go="employee_upload.html"><span class="nav-ico">📤</span><span>上傳</span></button>';
+    nav.querySelectorAll('[data-go]').forEach(function(btn){ btn.addEventListener('click', function(){ route(btn.getAttribute('data-go')); }); });
+    document.body.appendChild(nav);
   }
-  window.ANGAuth = {cfg, qs, clean, normalizeId, save, get, clear, logout, guessRole, pageFile, buildUrl, go, requireLogin, hasGoogle, toast};
-})(window);
+
+  function renderEmployeeHome(){
+    if(!ANGAuth.requireLogin()) return;
+    var u = ANGAuth.getUser();
+    var m = mainEl();
+    if (!m) return;
+    m.innerHTML = '<header class="topbar"><div class="brand"><div class="logo-mark">A</div><div><h1>ANG HR</h1><p>安全裝置登入 v4</p></div></div><div class="pill">'+esc(u.plan || '')+'</div></header>'+
+      '<section class="grid"><div class="card span-12"><div class="card-title">歡迎回來，'+esc(u.name || u.id)+'</div><div class="notice">員工編號 '+esc(u.id)+'｜角色 '+esc(u.role)+'｜方案 '+esc(u.plan)+'</div><div class="row"><button class="btn primary" data-go="employee_clock.html">打卡記錄</button><button class="btn light" data-go="employee_schedule.html">請假排班</button><button class="btn gray" id="logoutBtn">登出</button></div></div></section>';
+    m.querySelectorAll('[data-go]').forEach(function(b){ b.addEventListener('click', function(){ route(b.getAttribute('data-go')); }); });
+    var logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) logoutBtn.addEventListener('click', function(){ ANGAuth.logout(); });
+    layoutNav('employee');
+  }
+
+  function renderAdminHome(){
+    if(!ANGAuth.requireLogin('admin')) return;
+    var u = ANGAuth.getUser();
+    var m = mainEl();
+    if (!m) return;
+    m.innerHTML = '<header class="topbar"><div class="brand"><div class="logo-mark">A</div><div><h1>管理主頁</h1><p>權限由 GAS 驗證回傳</p></div></div><div class="pill">'+esc(u.role)+'</div></header>'+
+      '<section class="grid"><div class="card span-12"><div class="card-title">管理功能</div><div class="row"><button class="btn primary" data-go="admin_review.html">審核</button><button class="btn light" data-go="admin_schedule.html">排班</button><button class="btn light" data-go="admin_people.html">人員</button><button class="btn light" data-go="admin_settings.html">系統</button><button class="btn gray" id="logoutBtn">登出</button></div></div></section>';
+    m.querySelectorAll('[data-go]').forEach(function(b){ b.addEventListener('click', function(){ route(b.getAttribute('data-go')); }); });
+    var logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) logoutBtn.addEventListener('click', function(){ ANGAuth.logout(); });
+  }
+
+  function renderSimple(title, admin){
+    if(!ANGAuth.requireLogin(admin ? 'admin' : null)) return;
+    var u = ANGAuth.getUser();
+    var m = mainEl(); if(!m) return;
+    m.innerHTML = '<header class="topbar"><div class="brand"><div class="logo-mark">A</div><div><h1>'+esc(title)+'</h1><p>'+esc(u.id)+'｜secure v4</p></div></div></header><section class="grid"><div class="card span-12"><div class="notice">此頁已套用安全裝置登入 v4。資料操作需由 GAS 再驗證 token / device_id / role / plan。</div><div class="row"><button class="btn gray" id="backBtn">返回</button></div></div></section>';
+    var back = document.getElementById('backBtn'); if(back) back.addEventListener('click', function(){ route(admin ? 'admin_home.html' : 'employee_home.htm'); });
+    if(!admin) layoutNav('employee');
+  }
+
+  function routePage(){
+    if(!window.ANGAuth) { console.error('ANGAuth is not defined'); return; }
+    ANGAuth.bootstrapFromQuery({ autoRedirect:false });
+    ANGAuth.installGlobals();
+    var p = pageName();
+    if (p === 'index' || p === 'login') { bindIndexLogin(); return; }
+    if (p === 'employee_home' || p === 'employee_home.htm') return renderEmployeeHome();
+    if (p === 'admin_home') return renderAdminHome();
+    if (p.indexOf('admin_') === 0) return renderSimple(p.replace(/_/g,' '), true);
+    if (p.indexOf('employee_') === 0) return renderSimple(p.replace(/_/g,' '), false);
+  }
+
+  window.ANGApp = window.ANGApp || {};
+  window.ANGApp.route = route;
+  window.ANGApp.renderEmployeeHome = renderEmployeeHome;
+  window.ANGApp.renderAdminHome = renderAdminHome;
+  window.goPage = route;
+  window.goClock = function(){ route('employee_clock.html'); };
+  window.goSalary = function(){ route('employee_salary.html'); };
+  window.goUpload = function(){ route('employee_upload.html'); };
+  window.goIndex = function(){ route('employee_home.htm'); };
+  window.logout = function(){ if(window.ANGAuth) ANGAuth.logout(); };
+
+  ready(routePage);
+})(window, document);

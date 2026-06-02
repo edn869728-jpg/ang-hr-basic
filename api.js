@@ -1,10 +1,15 @@
-window.ANG_HR_CONFIG = {
-  edition: 'basic',
-  editionName: 'ANG HR Basic',
+(function(window){
+  'use strict';
+  window.ANG_HR_CONFIG = window.ANG_HR_CONFIG || {};
 
-  apiBaseUrl: 'https://script.google.com/macros/s/AKfycbylg5KENMMvwj6aqeK51ASk-uT6CsJLob6dix2ELmoP5rf8Yla5RnRKTiaVtkrA9dPm/exec',
-  gasUrl: 'https://script.google.com/macros/s/AKfycbylg5KENMMvwj6aqeK51ASk-uT6CsJLob6dix2ELmoP5rf8Yla5RnRKTiaVtkrA9dPm/exec',
-
-  defaultPage: 'employee',
-  version: 'leave_calc_v2'
-};
+  /*
+    v4 預設不在 GitHub Pages 前端硬寫 GAS URL。
+    建議：
+    1. App 登入連結帶 api=https://script.google.com/macros/s/.../exec
+    2. 或之後改成 Cloudflare Worker /api/proxy
+    3. 測試階段若留空，只有 act_test / test 開頭的測試啟用碼會走 Demo 模式。
+  */
+  window.ANG_HR_CONFIG.apiUrl = window.ANG_HR_CONFIG.apiUrl || '';
+  window.ANG_HR_CONFIG.proxyUrl = window.ANG_HR_CONFIG.proxyUrl || '';
+  window.ANG_HR_CONFIG.idleMinutes = 15;
+})(window);
