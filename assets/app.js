@@ -36,7 +36,7 @@
     var a = auth();
     if (a && a.buildUrl) return a.buildUrl(file);
     var u = user() || {};
-    var url = new URL(file || 'employee_home.html', location.href);
+    var url = new URL(file || 'employee_home.htm', location.href);
     if (u.id) url.searchParams.set('id', u.id);
     if (u.token) url.searchParams.set('token', u.token);
     if (u.device_id) url.searchParams.set('device_id', u.device_id);
@@ -63,7 +63,7 @@
     document.querySelectorAll('[data-home-key]').forEach(function(btn){
       btn.addEventListener('click', function(){
         var key = btn.getAttribute('data-home-key');
-        location.href = withAuthUrl(key === 'admin' ? 'admin_home.html' : 'employee_home.html');
+        location.href = withAuthUrl(key === 'admin' ? 'admin_home.html' : 'employee_home.htm');
       });
     });
     document.querySelectorAll('[data-feature]').forEach(function(btn){
@@ -91,20 +91,20 @@
   function renderIndex(){
     var u = user();
     if (!u) { location.replace('login.html?v=' + Date.now()); return; }
-    // App 登入後一律先進員工主頁，不因 creator/admin 自動跳管理頁，避免卡跳轉。
-    location.replace(withAuthUrl('employee_home.html'));
+    location.replace(withAuthUrl('employee_home.htm'));
   }
 
   function renderEmployeeHome(){
     var u = authOrLogin('employee'); if (!u) return;
     main.innerHTML = `
       <section class="hero">
-        <div class="hero-top"><div><div class="hello">歡迎回來，${esc(u.name || u.id)}</div><div class="hello-sub">員工編號 ${esc(u.id)}｜${esc(plan.name || 'ANG HR')}</div></div><div class="chip">員工主頁</div></div>
+        <div class="hero-top"><div><div class="hello">歡迎回來，${esc(u.name || u.id)}</div><div class="hello-sub">員工編號 ${esc(u.id)}｜${esc(plan.name || 'ANG HR')}</div></div><div class="chip">員工</div></div>
         <div class="shift"><div><small>今日狀態</small><div class="big" id="todayText">可正常使用</div></div><div><small>登入身分</small><div class="big">${esc(u.role)}</div></div></div>
       </section>
       <section class="card"><h1 class="title">快捷功能</h1><div class="home-action-main"><button class="btn bigbtn" id="goClockBtn">打卡記錄</button><button class="btn bigbtn soft" id="goScheduleBtn">請假排班</button></div></section>
-      <section class="card"><h1 class="title">常用作業</h1><div class="mini-action-grid"><button class="mini-action" id="goSalaryBtn">薪資明細<small>查詢紀錄</small></button><button class="mini-action" id="goUploadBtn">資料上傳<small>收據/證明</small></button><button class="mini-action" id="logoutBtn">登出<small>切換帳號</small></button></div></section>
+      <section class="card"><h1 class="title">常用作業</h1><div class="mini-action-grid"><button class="mini-action" id="goSalaryBtn">薪資明細<small>查詢紀錄</small></button><button class="mini-action" id="goUploadBtn">資料上傳<small data-feature="upload">補件資料</small></button></div></section>
       <section class="card"><h1 class="title">系統狀態</h1><div class="notice" id="homeNotice">前端登入與導覽已恢復。若後端 API 暫時無回應，頁面仍會保留操作入口。</div></section>
+      <section class="card"><button class="btn gray" id="logoutBtn">登出</button></section>
     `;
     document.getElementById('goClockBtn').onclick=function(){ location.href = withAuthUrl('employee_clock.html'); };
     document.getElementById('goScheduleBtn').onclick=function(){ location.href = withAuthUrl('employee_schedule.html'); };
@@ -120,12 +120,13 @@
   function renderAdminHome(){
     var u = authOrLogin('admin'); if (!u) return;
     main.innerHTML = `
-      <section class="hero"><div class="hero-top"><div><div class="hello">管理主頁</div><div class="hello-sub">${esc(u.name || u.id)}｜${esc(u.role)}｜${esc(plan.included || '')}</div></div><div class="chip">管理</div></div><div class="shift"><div><small>審核流程</small><div class="big">啟用</div></div><div><small>版本</small><div class="big">${esc(plan.name || 'ANG HR')}</div></div></div></section>
-      <section class="card"><h1 class="title">管理功能</h1><div class="admin-extra-nav"><a href="${withAuthUrl('admin_review.html')}">審核</a><a href="${withAuthUrl('admin_schedule.html')}">排班</a><a href="${withAuthUrl('admin_people.html')}">人員</a><a href="${withAuthUrl('admin_salary.html')}">薪資</a><a href="${withAuthUrl('admin_data.html')}">資料</a><a href="${withAuthUrl('admin_settings.html')}">系統</a></div></section>
+      <section class="hero"><div class="hero-top"><div><div class="hello">管理主頁</div><div class="hello-sub">${esc(u.name || u.id)}｜${esc(u.role)}｜${esc(plan.included || '')}</div></div><div class="chip">管理</div></div></section>
+      <section class="card"><h1 class="title">管理功能</h1><div class="admin-extra-nav"><a href="${withAuthUrl('admin_review.html')}">審核</a><a href="${withAuthUrl('admin_schedule.html')}" data-feature="admin_schedule">排班</a><a href="${withAuthUrl('admin_people.html')}">人員</a><a href="${withAuthUrl('admin_salary.html')}">薪資</a><a href="${withAuthUrl('admin_data.html')}" data-feature="data">資料</a><a href="${withAuthUrl('admin_notice.html')}">公告</a><a href="${withAuthUrl('admin_settings.html')}" data-feature="settings">設定</a></div></section>
       <section class="card"><h1 class="title">今日提醒</h1><div class="notice" id="adminNotice">登入與管理導覽已恢復。</div></section>
       <section class="card"><button class="btn gray" id="logoutBtn">登出</button></section>
     `;
     document.getElementById('logoutBtn').addEventListener('click', function(){ auth().logout(); });
+    bindNav();
   }
 
   function renderEmployeeFeature(title, desc, actionName){
@@ -135,7 +136,7 @@
       <section class="card"><h1 class="title">${esc(title)}</h1><div class="notice" id="featureNotice">${esc(desc)}</div></section>
       <section class="card"><div class="grid"><button class="btn" id="backHomeBtn">回員工主頁</button><button class="btn soft" id="refreshBtn">重新整理</button></div></section>
     `;
-    document.getElementById('backHomeBtn').onclick=function(){ location.href = withAuthUrl('employee_home.html'); };
+    document.getElementById('backHomeBtn').onclick=function(){ location.href = withAuthUrl('employee_home.htm'); };
     document.getElementById('refreshBtn').addEventListener('click', function(){
       api(actionName || 'health', { id:u.id, token:u.token }).then(function(res){ toast((res && (res.message || res.msg)) || '已重新整理'); });
     });
